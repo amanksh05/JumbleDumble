@@ -1,6 +1,7 @@
 package com.example.jumbledumble
 
 import android.app.Activity
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,17 +16,24 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.material3.MaterialTheme.shapes
 import androidx.compose.material3.MaterialTheme.typography
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,90 +49,140 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.jumbledumble.ui.theme.GameViewModel
 import com.example.jumbledumble.ui.theme.JumbleDumbleTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 
 fun GameScreen(gameViewModel: GameViewModel = viewModel()) {
     val mediumPadding = dimensionResource(R.dimen.padding_medium)
     val gameUiState by gameViewModel.uiState.collectAsState()
-    Column(
-        modifier = Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(mediumPadding),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Jumble Dumble",
-            style = typography.titleLarge
-        )
-        GameStatus(
-            score = gameUiState.score,
-            modifier = Modifier.padding(20.dp)
-        )
-        GameLayout(
-            wordCount = gameUiState.currentWordCount,
-            currentScrambledWord = gameUiState.currentScrambledWord,
-            isGuessWrong = gameUiState.isGuessedWordWrong,
-            userGuess = gameViewModel.userGuess,
-            onUserGuessChanged = { gameViewModel.updateUserGuess(it) },
-            onKeyboardDone = {gameViewModel.checkUserGuess()},
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight()
-                .padding(mediumPadding)
-        )
+    var isSkipped by remember {
+        mutableStateOf(false)
+    }
 
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(colors = topAppBarColors(
+                containerColor = colorScheme.primaryContainer,
+                titleContentColor = colorScheme.primary
+            ),
+                title = {
+                    Text(
+                        text = "Jumble Dumble",
+                        style = typography.headlineMedium,
+                    )
+                })
+        }
+    ) { innerPadding ->
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(mediumPadding),
-            verticalArrangement = Arrangement.spacedBy(mediumPadding),
+                .verticalScroll(rememberScrollState())
+                .padding(mediumPadding)
+                .padding(innerPadding),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { gameViewModel.checkUserGuess() })
-            {
-                Text(
-                    text = stringResource(id = R.string.submit),
-                    fontSize = 16.sp
-                )
-            }
-            OutlinedButton(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { gameViewModel.skipWord() }
-            ) {
-                Text(
-                    text = stringResource(id = R.string.skip),
-                    fontSize = 16.sp
-                )
-            }
 
-            if(gameUiState.isGameOver){
-                FinalScoreDialog(
-                    score = gameUiState.score,
-                    onPlayAgain = {gameViewModel.resetGame()}
-                )
+            GameStatus(
+                score = gameUiState.score,
+                modifier = Modifier.padding(20.dp)
+            )
+            GameLayout(
+                wordCount = gameUiState.currentWordCount,
+                currentScrambledWord = gameUiState.currentScrambledWord,
+                isGuessWrong = gameUiState.isGuessedWordWrong,
+                userGuess = gameViewModel.userGuess,
+                onUserGuessChanged = { gameViewModel.updateUserGuess(it) },
+                onKeyboardDone = { gameViewModel.checkUserGuess() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(mediumPadding)
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(mediumPadding),
+                verticalArrangement = Arrangement.spacedBy(mediumPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { gameViewModel.checkUserGuess() })
+                {
+                    Text(
+                        text = stringResource(id = R.string.submit),
+                        fontSize = 16.sp
+                    )
+                }
+                OutlinedButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick =
+                    {
+                        Log.d("hello", isSkipped.toString())
+                        isSkipped = true
+
+                    }
+
+
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.skip),
+                        fontSize = 16.sp
+                    )
+                }
+                if (isSkipped) {
+                    val correctWord = gameViewModel.correctWord()
+                    AlertDialog(
+                        onDismissRequest = {
+                            // Handle dismissal if needed
+                        },
+                        title = { Text(text = stringResource(id = R.string.correct_answer)) },
+                        text = {
+                            Text(text = correctWord)
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                isSkipped=false
+                                gameViewModel.skipWord()
+
+                            }) {
+                                Text(text = "OK")
+                            }
+                        },
+                        confirmButton = {}
+                    )
+
+                }
+
+
+                if (gameUiState.isGameOver) {
+                    FinalScoreDialog(
+                        score = gameUiState.score,
+                        onPlayAgain = { gameViewModel.resetGame() }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun GameStatus(score:Int,modifier: Modifier=Modifier){
+fun GameStatus(score: Int, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier
     ) {
         Text(
-            text = stringResource(id = R.string.score,score),
+            text = stringResource(id = R.string.score, score),
             style = typography.headlineMedium,
-            modifier=Modifier.padding(8.dp)
+            modifier = Modifier.padding(8.dp)
         )
     }
 }
 
 @Composable
 fun GameLayout(
+//    correctWord:String,
     wordCount: Int,
     currentScrambledWord: String,
     isGuessWrong: Boolean,
@@ -194,6 +252,33 @@ fun GameLayout(
 }
 
 @Composable
+fun AnswerDialog(
+    correctWord: String,
+    onSkip: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AlertDialog(
+        onDismissRequest = { },
+        title = { Text(text = stringResource(id = R.string.correct_answer)) },
+        text = {
+            Text(text = correctWord)
+        },
+        modifier = modifier,
+        dismissButton = {
+            TextButton(onClick = { onSkip() }) {
+                Text(text = "OK")
+            }
+        },
+        confirmButton = {
+//            TextButton(onClick = onPlayAgain) {
+//                Text(text = stringResource(id = R.string.play_again))
+//            }
+        }
+    )
+
+}
+
+@Composable
 private fun FinalScoreDialog(
     score: Int,
     onPlayAgain: () -> Unit,
@@ -201,13 +286,13 @@ private fun FinalScoreDialog(
 ) {
     val activity = (LocalContext.current as Activity)
     AlertDialog(
-        onDismissRequest = {  },
+        onDismissRequest = { },
         title = { Text(text = stringResource(id = R.string.congratulations)) },
         text = { Text(text = stringResource(id = R.string.you_scored, score)) },
         modifier = modifier,
         dismissButton = {
-            TextButton(onClick = {activity.finish()}) {
-                Text(text = stringResource(id =R.string.exit ))
+            TextButton(onClick = { activity.finish() }) {
+                Text(text = stringResource(id = R.string.exit))
             }
         },
         confirmButton = {
@@ -217,9 +302,10 @@ private fun FinalScoreDialog(
         }
     )
 }
+
 @Preview(showBackground = true)
 @Composable
-fun GameScreenPreview(){
+fun GameScreenPreview() {
     JumbleDumbleTheme {
         GameScreen()
     }
